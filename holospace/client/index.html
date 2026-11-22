@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#000000" />
+  <title>HOLOSPACE</title>
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loading-logo">
+      <svg viewBox="0 0 100 100" class="logo-svg">
+        <polygon points="50,5 95,27.5 95,72.5 50,95 5,72.5 5,27.5" fill="none" stroke="#00f5ff" stroke-width="2"/>
+        <polygon points="50,20 80,35 80,65 50,80 20,65 20,35" fill="none" stroke="#00f5ff" stroke-width="1" opacity="0.5"/>
+        <circle cx="50" cy="50" r="8" fill="#00f5ff" opacity="0.8"/>
+        <line x1="50" y1="20" x2="50" y2="80" stroke="#00f5ff" stroke-width="0.5" opacity="0.3"/>
+        <line x1="20" y1="35" x2="80" y2="65" stroke="#00f5ff" stroke-width="0.5" opacity="0.3"/>
+        <line x1="80" y1="35" x2="20" y2="65" stroke="#00f5ff" stroke-width="0.5" opacity="0.3"/>
+      </svg>
+      <h1>HOLOSPACE</h1>
+      <p class="loading-sub">Shared Holographic Reality</p>
+    </div>
+    <div class="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+    <p class="loading-status" id="loading-status">Initializing...</p>
+  </div>
+
+  <!-- Main App Container -->
+  <div id="app" style="display:none;">
+
+    <!-- Camera Passthrough Layer -->
+    <video id="camera-feed" autoplay playsinline muted></video>
+
+    <!-- Three.js Canvas Overlay -->
+    <canvas id="holospace-canvas"></canvas>
+
+    <!-- HUD Overlay -->
+    <div id="hud">
+      <!-- Top Bar -->
+      <div id="top-bar">
+        <div id="room-info">
+          <span class="room-code-label">ROOM</span>
+          <span id="room-code-display">––––––</span>
+        </div>
+        <div id="connection-status">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">OFFLINE</span>
+        </div>
+        <button id="btn-peers" class="hud-btn" title="Connected peers">
+          <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          <span id="peer-count">0</span>
+        </button>
+      </div>
+
+      <!-- Center Reticle -->
+      <div id="reticle-wrapper">
+        <div id="reticle">
+          <div class="reticle-ring"></div>
+          <div class="reticle-dot"></div>
+          <div class="reticle-corners">
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+          </div>
+        </div>
+        <div id="scan-status" class="scan-status"></div>
+      </div>
+
+      <!-- Toolbar (bottom) -->
+      <div id="toolbar">
+        <button id="btn-scan" class="tool-btn primary" title="Scan object">
+          <svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zM19 13h-1.5v1.5H19V13zm0 4.5h-1.5V19H19v-1.5z"/></svg>
+          <span>SCAN</span>
+        </button>
+        <button id="btn-place" class="tool-btn" title="Place hologram" disabled>
+          <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          <span>PLACE</span>
+        </button>
+        <button id="btn-calibrate" class="tool-btn" title="Calibrate world origin">
+          <svg viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+          <span>ALIGN</span>
+        </button>
+        <button id="btn-menu" class="tool-btn" title="Menu">
+          <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+          <span>MENU</span>
+        </button>
+      </div>
+
+      <!-- Scan Progress Bar -->
+      <div id="scan-progress-wrap" style="display:none;">
+        <div id="scan-progress-bar">
+          <div id="scan-progress-fill"></div>
+        </div>
+        <span id="scan-progress-label">Scanning... 0%</span>
+        <button id="btn-scan-cancel">✕</button>
+      </div>
+
+      <!-- Object Controls (shown when hologram selected) -->
+      <div id="object-controls" style="display:none;">
+        <div class="control-group">
+          <span id="selected-name">Object</span>
+          <button id="btn-hide" title="Toggle original visibility">👁</button>
+          <button id="btn-delete" title="Remove hologram">🗑</button>
+          <button id="btn-deselect" title="Deselect">✕</button>
+        </div>
+        <div class="control-group">
+          <label>Scale</label>
+          <input type="range" id="scale-slider" min="0.1" max="5" step="0.05" value="1" />
+        </div>
+      </div>
+
+      <!-- AR Fallback Mode Banner -->
+      <div id="fallback-banner" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <span id="fallback-message">Running in camera passthrough mode (WebXR not available)</span>
+      </div>
+    </div>
+
+    <!-- Peers Panel -->
+    <div id="peers-panel" class="side-panel" style="display:none;">
+      <div class="panel-header">
+        <h3>CONNECTED</h3>
+        <button class="close-panel" data-panel="peers-panel">✕</button>
+      </div>
+      <ul id="peers-list"></ul>
+    </div>
+
+    <!-- Main Menu Panel -->
+    <div id="menu-panel" class="side-panel" style="display:none;">
+      <div class="panel-header">
+        <h3>HOLOSPACE</h3>
+        <button class="close-panel" data-panel="menu-panel">✕</button>
+      </div>
+      <div class="panel-content">
+        <section>
+          <h4>ROOM</h4>
+          <div id="room-controls">
+            <div id="no-room-view">
+              <input type="text" id="input-name" placeholder="Your name" maxlength="20" value="Explorer" />
+              <button id="btn-create-room" class="action-btn primary">Create Room</button>
+              <div class="divider">— or join —</div>
+              <input type="text" id="input-room-code" placeholder="Room code (e.g. A1B2C3D4)" maxlength="8" />
+              <button id="btn-join-room" class="action-btn">Join Room</button>
+            </div>
+            <div id="in-room-view" style="display:none;">
+              <div class="info-row">
+                <span>Room Code</span>
+                <strong id="active-room-code">––</strong>
+              </div>
+              <button id="btn-copy-link" class="action-btn">Copy Invite Link</button>
+              <button id="btn-leave-room" class="action-btn danger">Leave Room</button>
+            </div>
+          </div>
+        </section>
+        <section>
+          <h4>HOLOGRAMS</h4>
+          <div id="hologram-list-container">
+            <p class="empty-hint">No holograms placed yet.</p>
+          </div>
+        </section>
+        <section>
+          <h4>CAMERA MODE</h4>
+          <div class="toggle-row">
+            <label>Landscape lock</label>
+            <input type="checkbox" id="toggle-landscape" checked />
+          </div>
+          <div class="toggle-row">
+            <label>Show peer positions</label>
+            <input type="checkbox" id="toggle-peers-3d" checked />
+          </div>
+          <div class="toggle-row">
+            <label>Show shadows</label>
+            <input type="checkbox" id="toggle-shadows" checked />
+          </div>
+        </section>
+        <section>
+          <h4>ABOUT</h4>
+          <p class="about-text">
+            HOLOSPACE v1.0 — Shared Holographic Reality<br/>
+            Powered by WebXR · Three.js · WebSockets<br/>
+            <small>Best on Android Chrome (ARCore) · iOS: camera-passthrough mode</small>
+          </p>
+        </section>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div id="notifications"></div>
+
+  </div><!-- /#app -->
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
