@@ -1,0 +1,11 @@
+{
+  "name": "vishwakarma-holospace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HOLOSPACE - Futuristic multiplayer mixed-reality application",
+  "scripts": {
+    "build": "cd holospace/client && npm install && npm run build",
+    "dev": "cd holospace/client && npm run dev",
+    "start": "cd holospace/client && npm run preview"
+  }
+}

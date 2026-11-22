@@ -12,14 +12,15 @@
 import { io } from 'socket.io-client';
 import { notify } from '../ui/notifications.js';
 
-// ── Server URL: change this to your deployed server ──────────────────────────
+// ── Server URL: can be overridden via localStorage or UI settings ────────────
 const SERVER_URL = (() => {
-  // Auto-detect: if running locally, use localhost; otherwise relative path
+  const custom = localStorage.getItem('holospace_server_url');
+  if (custom) return custom;
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     return 'http://localhost:3001';
   }
-  // Production: same host, different port or same port with path
-  return `${location.protocol}//${location.hostname}:3001`;
+  // When deployed to Vercel/cloud without custom backend URL set
+  return null;
 })();
 
 const POSE_THROTTLE_MS = 50; // 20Hz pose updates
@@ -42,82 +43,91 @@ export class MultiplayerManager {
 
   // ── Socket connection ───────────────────────────────────────────────────────
   _connect() {
-    this.socket = io(SERVER_URL, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 10,
-    });
+    if (!SERVER_URL) {
+      this._updateConnectionStatus('waiting', 'LOCAL AR');
+      return;
+    }
 
-    this.socket.on('connect', () => {
-      this.connected = true;
-      this.appState.peerId = this.socket.id;
-      this._updateConnectionStatus('online', 'ONLINE');
-      console.log('[Multiplayer] Connected:', this.socket.id);
-      document.dispatchEvent(new Event('multiplayer:connected'));
-    });
+    try {
+      this.socket = io(SERVER_URL, {
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 10,
+      });
 
-    this.socket.on('disconnect', (reason) => {
-      this.connected = false;
-      this._updateConnectionStatus('offline', 'OFFLINE');
-      console.warn('[Multiplayer] Disconnected:', reason);
-      document.dispatchEvent(new Event('multiplayer:disconnected'));
-    });
+      this.socket.on('connect', () => {
+        this.connected = true;
+        this.appState.peerId = this.socket.id;
+        this._updateConnectionStatus('online', 'ONLINE');
+        console.log('[Multiplayer] Connected:', this.socket.id);
+        document.dispatchEvent(new Event('multiplayer:connected'));
+      });
 
-    this.socket.on('connect_error', (err) => {
-      this._updateConnectionStatus('offline', 'SERVER OFFLINE');
-      console.error('[Multiplayer] Connection error:', err.message);
-    });
+      this.socket.on('disconnect', (reason) => {
+        this.connected = false;
+        this._updateConnectionStatus('offline', 'LOCAL AR');
+        console.warn('[Multiplayer] Disconnected:', reason);
+        document.dispatchEvent(new Event('multiplayer:disconnected'));
+      });
 
-    // ── Peer events ─────────────────────────────────────────────────────────
-    this.socket.on('peer:joined', ({ peer }) => {
-      this.appState.peers.set(peer.id, peer);
-      this.renderer.addPeerAvatar(peer.id, peer.color);
-      notify(`${peer.name} joined the room`, 'info');
-      document.dispatchEvent(new CustomEvent('peers:updated', { detail: { peers: this.appState.peers } }));
-    });
+      this.socket.on('connect_error', (err) => {
+        this._updateConnectionStatus('waiting', 'LOCAL AR');
+        console.warn('[Multiplayer] Backend not connected, running in local AR mode');
+      });
 
-    this.socket.on('peer:left', ({ peerId, name }) => {
-      this.appState.peers.delete(peerId);
-      this.renderer.removePeerAvatar(peerId);
-      notify(`${name} left the room`, 'info');
-      document.dispatchEvent(new CustomEvent('peers:updated', { detail: { peers: this.appState.peers } }));
-    });
+      // ── Peer events ─────────────────────────────────────────────────────────
+      this.socket.on('peer:joined', ({ peer }) => {
+        this.appState.peers.set(peer.id, peer);
+        this.renderer.addPeerAvatar(peer.id, peer.color);
+        notify(`${peer.name} joined the room`, 'info');
+        document.dispatchEvent(new CustomEvent('peers:updated', { detail: { peers: this.appState.peers } }));
+      });
 
-    this.socket.on('peer:pose', ({ peerId, pose }) => {
-      const peer = this.appState.peers.get(peerId);
-      if (peer) peer.pose = pose;
-      if (this.appState.showPeers3D) {
-        this.renderer.updatePeerAvatar(peerId, pose);
-      }
-    });
+      this.socket.on('peer:left', ({ peerId, name }) => {
+        this.appState.peers.delete(peerId);
+        this.renderer.removePeerAvatar(peerId);
+        notify(`${name} left the room`, 'info');
+        document.dispatchEvent(new CustomEvent('peers:updated', { detail: { peers: this.appState.peers } }));
+      });
 
-    // ── World origin ─────────────────────────────────────────────────────────
-    this.socket.on('world:origin', (anchor) => {
-      document.dispatchEvent(new CustomEvent('world:originReceived', { detail: anchor }));
-    });
+      this.socket.on('peer:pose', ({ peerId, pose }) => {
+        const peer = this.appState.peers.get(peerId);
+        if (peer) peer.pose = pose;
+        if (this.appState.showPeers3D) {
+          this.renderer.updatePeerAvatar(peerId, pose);
+        }
+      });
 
-    // ── Hologram events ──────────────────────────────────────────────────────
-    this.socket.on('hologram:added', (hologram) => {
-      if (!this.appState.holograms.has(hologram.id)) {
-        this.hologramManager.addHologram(hologram);
-        notify(`${hologram.name || 'Object'} hologram shared by peer`, 'info');
-      }
-    });
+      // ── World origin ─────────────────────────────────────────────────────────
+      this.socket.on('world:origin', (anchor) => {
+        document.dispatchEvent(new CustomEvent('world:originReceived', { detail: anchor }));
+      });
 
-    this.socket.on('hologram:updated', (update) => {
-      this.hologramManager.updateHologram(update);
-    });
+      // ── Hologram events ──────────────────────────────────────────────────────
+      this.socket.on('hologram:added', (hologram) => {
+        if (!this.appState.holograms.has(hologram.id)) {
+          this.hologramManager.addHologram(hologram);
+          notify(`${hologram.name || 'Object'} hologram shared by peer`, 'info');
+        }
+      });
 
-    this.socket.on('hologram:removed', ({ id }) => {
-      this.hologramManager.removeHologram(id);
-    });
+      this.socket.on('hologram:updated', (update) => {
+        this.hologramManager.updateHologram(update);
+      });
+
+      this.socket.on('hologram:removed', ({ id }) => {
+        this.hologramManager.removeHologram(id);
+      });
+    } catch (e) {
+      this._updateConnectionStatus('waiting', 'LOCAL AR');
+    }
   }
 
   // ── Listen to local hologram moves for sync ─────────────────────────────────
   _listenForHologramEvents() {
     document.addEventListener('hologram:localMoved', (e) => {
-      if (this.connected && this.roomId) {
+      if (this.connected && this.socket && this.roomId) {
         this.socket.emit('hologram:update', e.detail);
       }
     });
@@ -125,6 +135,18 @@ export class MultiplayerManager {
 
   // ── Room management ─────────────────────────────────────────────────────────
   createRoom(name, callback) {
+    if (!this.connected || !this.socket) {
+      // Local / Offline standalone room
+      const roomId = Math.random().toString(36).substring(2, 10).toUpperCase();
+      this.roomId = roomId;
+      this.appState.roomId = roomId;
+      const peer = { id: 'local-user', name: name || 'Explorer', color: '#00f5ff' };
+      this.appState.peerInfo = peer;
+      this._updateRoomDisplay(roomId);
+      callback?.({ ok: true, roomId, peer, isOffline: true });
+      return;
+    }
+
     this.socket.emit('room:create', { name }, (result) => {
       if (result.ok) {
         this.roomId = result.roomId;
@@ -140,6 +162,16 @@ export class MultiplayerManager {
   }
 
   joinRoom(roomId, name, callback) {
+    if (!this.connected || !this.socket) {
+      this.roomId = roomId;
+      this.appState.roomId = roomId;
+      const peer = { id: 'local-user', name: name || 'Explorer', color: '#ff6b35' };
+      this.appState.peerInfo = peer;
+      this._updateRoomDisplay(roomId);
+      callback?.({ ok: true, roomId, peer, peers: [], holograms: [], isOffline: true });
+      return;
+    }
+
     this.socket.emit('room:join', { roomId, name }, (result) => {
       if (result.ok) {
         this.roomId = result.roomId;
