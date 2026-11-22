@@ -4,8 +4,8 @@
   "private": true,
   "description": "HOLOSPACE - Futuristic multiplayer mixed-reality application",
   "scripts": {
-    "build": "cd holospace/client && npm install && npm run build",
-    "dev": "cd holospace/client && npm run dev",
-    "start": "cd holospace/client && npm run preview"
+    "build": "npm --prefix holospace/client run build",
+    "dev": "npm --prefix holospace/client run dev",
+    "start": "npm --prefix holospace/client run preview"
   }
 }
