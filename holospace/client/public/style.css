@@ -83,13 +83,32 @@ html, body {
   position: absolute; inset: 0; z-index: 2;
   width: 100% !important; height: 100% !important;
   background: transparent;
-  pointer-events: none; /* events handled by HUD layer */
+  pointer-events: auto; /* enables 3D touch interaction */
 }
 
 /* ── HUD ───────────────────────────────────────────────────────────────────── */
 #hud {
   position: absolute; inset: 0; z-index: 3;
   pointer-events: none; /* children opt in */
+}
+
+/* ── WebXR Enter AR Pill ───────────────────────────────────────────────────── */
+#btn-enter-webxr {
+  display: none;
+  align-items: center; gap: 0.4rem;
+  background: rgba(0, 245, 255, 0.2);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  padding: 0.35rem 0.8rem;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 0.7rem;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 0 10px rgba(0, 245, 255, 0.3);
+  animation: pulse-glow 2s infinite ease-in-out;
 }
 
 /* ── Top Bar ───────────────────────────────────────────────────────────────── */

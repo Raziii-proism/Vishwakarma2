@@ -13,11 +13,68 @@ export function buildHologramMesh(data) {
   if (data.type === 'scanned' && data.geometry) {
     return buildFromSerializedGeometry(data.geometry, data.texture);
   }
+  if (data.type === 'paper-text') {
+    return buildPaperTextMesh(data.text || data.name);
+  }
   if (data.type === 'primitive') {
     return buildPrimitive(data.shape || 'box', data.color || '#00f5ff');
   }
   // Default: glowing holographic sphere
   return buildPrimitive('sphere', data.color || '#00f5ff');
+}
+
+// ── Build 3D paper text hologram mesh ─────────────────────────────────────────
+function buildPaperTextMesh(text = 'TEXT DETECTED') {
+  let texture = null;
+
+  if (typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Translucent dark-blue cyber plaque
+    ctx.fillStyle = 'rgba(0, 15, 35, 0.88)';
+    ctx.fillRect(20, 20, 984, 472);
+
+    ctx.strokeStyle = '#00f5ff';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(20, 20, 984, 472);
+
+    ctx.fillStyle = '#00f5ff';
+    ctx.font = 'bold 28px monospace';
+    ctx.fillText('◈ OPTICAL DATA EXTRACTED ◈', 60, 80);
+
+    ctx.strokeStyle = 'rgba(0, 245, 255, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(60, 105);
+    ctx.lineTo(964, 105);
+    ctx.stroke();
+
+    ctx.fillStyle = '#00f5ff';
+    ctx.font = 'bold 52px monospace';
+    ctx.fillText(text.substring(0, 32), 60, 240);
+
+    texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+  }
+
+  const geo = new THREE.PlaneGeometry(0.35, 0.18);
+  const mat = new THREE.MeshBasicMaterial({
+    map: texture,
+    color: texture ? 0xffffff : 0x00f5ff,
+    transparent: true,
+    opacity: 0.95,
+    side: THREE.DoubleSide,
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+  const wireGeo = new THREE.PlaneGeometry(0.356, 0.186);
+  const wireMat = new THREE.MeshBasicMaterial({ color: 0x00f5ff, wireframe: true, transparent: true, opacity: 0.5 });
+  mesh.add(new THREE.Mesh(wireGeo, wireMat));
+
+  return mesh;
 }
 
 // ── Deserialize stored geometry ───────────────────────────────────────────────

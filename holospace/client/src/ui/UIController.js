@@ -7,13 +7,14 @@ import * as THREE from 'three';
 import { notify } from './notifications.js';
 
 export class UIController {
-  constructor({ arSession, renderer, hologramManager, multiplayer, scanner, calibrator, AppState }) {
+  constructor({ arSession, renderer, hologramManager, multiplayer, scanner, calibrator, paperReader, AppState }) {
     this.arSession = arSession;
     this.renderer = renderer;
     this.hologramManager = hologramManager;
     this.multiplayer = multiplayer;
     this.scanner = scanner;
     this.calibrator = calibrator;
+    this.paperReader = paperReader;
     this.AppState = AppState;
 
     this._init();
@@ -21,6 +22,7 @@ export class UIController {
 
   _init() {
     this._bindToolbar();
+    this._bindWebXRButton();
     this._bindMenu();
     this._bindPeersPanel();
     this._bindObjectControls();
@@ -37,11 +39,29 @@ export class UIController {
 
   // ── Toolbar Buttons ─────────────────────────────────────────────────────────
   _bindToolbar() {
+    const btnRead = document.getElementById('btn-read-paper');
     const btnScan = document.getElementById('btn-scan');
     const btnPlace = document.getElementById('btn-place');
     const btnCalibrate = document.getElementById('btn-calibrate');
     const btnMenu = document.getElementById('btn-menu');
     const btnPeers = document.getElementById('btn-peers');
+
+    // READ PAPER (OCR) button
+    if (btnRead) {
+      btnRead.addEventListener('click', () => {
+        if (!this.paperReader) return;
+        btnRead.classList.toggle('ocr-active');
+        const isActive = this.paperReader.toggleAutoScan();
+        btnRead.querySelector('span').textContent = isActive ? 'READING' : 'READ';
+      });
+
+      // Long press / double click for quick manual scan or test paper text input
+      btnRead.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const custom = prompt('Enter text to project as 3D blue hologram:', 'MEETING AT 5 PM');
+        if (custom) this.paperReader?.manualReadPaper(custom);
+      });
+    }
 
     // SCAN button
     btnScan.addEventListener('click', () => {
@@ -171,6 +191,17 @@ export class UIController {
     } else {
       this.calibrator.setWorldOriginFromCamera();
       notify('World origin set to current position', 'success');
+    }
+  }
+
+  // ── WebXR Enter AR Button ──────────────────────────────────────────────────
+  _bindWebXRButton() {
+    const btn = document.getElementById('btn-enter-webxr');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        this.arSession.startWebXRSession?.();
+        btn.style.display = 'none';
+      });
     }
   }
 

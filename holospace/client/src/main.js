@@ -11,6 +11,7 @@ import { HologramManager } from './core/HologramManager.js';
 import { UIController } from './ui/UIController.js';
 import { notify, setLoadingStatus, setLoadingProgress, hideLoadingScreen } from './ui/notifications.js';
 import { SpatialCalibrator } from './ar/SpatialCalibrator.js';
+import { PaperReader } from './scanning/PaperReader.js';
 
 // ─── Global App State ─────────────────────────────────────────────────────────
 export const AppState = {
@@ -64,9 +65,13 @@ async function boot() {
     const calibrator = new SpatialCalibrator(renderer, arSession, multiplayer, AppState);
     setLoadingProgress(93);
 
+    setLoadingStatus('Loading Paper Text Hologram Reader...');
+    const paperReader = new PaperReader(renderer, arSession, hologramManager, multiplayer, AppState);
+    setLoadingProgress(97);
+
     setLoadingStatus('Building UI...');
     const ui = new UIController({
-      arSession, renderer, hologramManager, multiplayer, scanner, calibrator, AppState
+      arSession, renderer, hologramManager, multiplayer, scanner, calibrator, paperReader, AppState
     });
     setLoadingProgress(100);
 

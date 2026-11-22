@@ -43,70 +43,63 @@ export class ARSession {
   }
 
   async init() {
+    // Always start real-world camera video passthrough immediately
+    await this._initCamera();
+    this._initOrientationTracking();
+
     if (this.mode === 'webxr') {
       await this._initWebXR();
-    } else if (this.mode === 'camera') {
-      await this._initCamera();
-      this._initOrientationTracking();
-    } else {
-      this._initOrientationTracking();
+      // Show Enter AR pill if WebXR supported
+      const arBtn = document.getElementById('btn-enter-webxr');
+      if (arBtn) arBtn.style.display = 'flex';
     }
   }
 
   // ── WebXR path ──────────────────────────────────────────────────────────────
   async _initWebXR() {
     this.renderer.xr.enabled = true;
+    document.addEventListener('ar:start', () => this.startWebXRSession());
+  }
 
-    // The XR session is started when user taps "Enter AR"
-    // We pre-configure but don't start until user initiates
+  async startWebXRSession() {
     const sessionInit = {
       requiredFeatures: ['hit-test'],
       optionalFeatures: ['anchors', 'light-estimation', 'dom-overlay', 'depth-sensing'],
       domOverlay: { root: document.getElementById('hud') },
     };
 
-    document.addEventListener('ar:start', async () => {
-      try {
-        const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
-        this._xrSession = session;
-        this.renderer.xr.setSession(session);
+    try {
+      const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
+      this._xrSession = session;
+      this.renderer.xr.setSession(session);
 
-        // Reference space
-        this._referenceSpace = await session.requestReferenceSpace('local-floor').catch(
-          () => session.requestReferenceSpace('local')
-        );
+      this._referenceSpace = await session.requestReferenceSpace('local-floor').catch(
+        () => session.requestReferenceSpace('local')
+      );
 
-        // Hit test source
-        const viewerSpace = await session.requestReferenceSpace('viewer');
-        this._hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+      const viewerSpace = await session.requestReferenceSpace('viewer');
+      this._hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
 
-        // Light estimation
-        if (session.requestLightProbe) {
-          try {
-            this._lightProbe = await session.requestLightProbe();
-          } catch (_) {}
-        }
-
-        session.addEventListener('end', () => {
-          this._hitTestSource = null;
-          this._xrSession = null;
-        });
-
-        // Hide the camera video element in WebXR (XR handles passthrough)
-        this.videoEl.style.display = 'none';
-
-        console.log('[ARSession] WebXR immersive-ar started');
-      } catch (err) {
-        console.error('[ARSession] Failed to start WebXR:', err);
-        // Fall back to camera mode
-        this.mode = 'camera';
-        await this._initCamera();
-        this._initOrientationTracking();
+      if (session.requestLightProbe) {
+        try {
+          this._lightProbe = await session.requestLightProbe();
+        } catch (_) {}
       }
-    });
+
+      session.addEventListener('end', () => {
+        this._hitTestSource = null;
+        this._xrSession = null;
+        this.videoEl.style.display = 'block';
+      });
+
+      this.videoEl.style.display = 'none';
+      console.log('[ARSession] WebXR immersive-ar started');
+    } catch (err) {
+      console.error('[ARSession] Failed to start WebXR session:', err);
+    }
   }
 
-  // ── Camera passthrough (non-WebXR) ──────────────────────────────────────────
+  // ── Camera passthrough (live video stream) ──────────────────────────────────
   async _initCamera() {
     try {
       const constraints = {
@@ -120,12 +113,15 @@ export class ARSession {
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       this.videoEl.srcObject = stream;
-      await new Promise(resolve => { this.videoEl.onloadedmetadata = resolve; });
+      this.videoEl.setAttribute('playsinline', 'true');
+      this.videoEl.setAttribute('autoplay', 'true');
+      this.videoEl.muted = true;
+      await this.videoEl.play().catch(e => console.warn('Autoplay note:', e));
       this.videoEl.style.display = 'block';
       this._stream = stream;
-      console.log('[ARSession] Camera stream started');
+      console.log('[ARSession] Live camera passthrough started');
     } catch (err) {
-      console.error('[ARSession] Camera access denied:', err);
+      console.error('[ARSession] Camera access note:', err);
       this.mode = 'orientation';
     }
   }
